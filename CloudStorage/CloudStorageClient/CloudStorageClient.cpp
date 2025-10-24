@@ -11,31 +11,172 @@
 #include <mutex>
 #include <fstream>
 
+std::string user_base_dir = "Su/";
 std::vector<int> sockfd_v;
 std::vector<std::thread> thread_v;
-std::mutex mtx;
-std::condition_variable cond;
+std::mutex mtx1;
+std::mutex mtx2;
+std::condition_variable cond_to_other_thread;
+std::condition_variable cond_to_main_thread;
 bool has_task = false;
+int task_finish = 3;
 int task_opt = -1;
-int file_mid = 0, file_end = 0;
+int file_mid1 = 0, file_mid2 = 0, file_end = 0;
+std::string filename;
 
 void ThreadFunc1()
 {
     while (true)
     {
-        std::unique_lock<std::mutex> lock(mtx);
-        cond.wait(lock, []()
-                  { return has_task; });
+        std::unique_lock<std::mutex> lock(mtx1);
+        cond_to_other_thread.wait(lock, []()
+                                  { return has_task; });
         switch (task_opt)
         {
         case 1:
         {
+            std::string upload_request = "Upload";
+            upload_request = upload_request + " " + user_base_dir + filename + " " + "0" + "-" + std::to_string(file_mid1) + "*";
+            std::ifstream ifs(filename.c_str(), std::ios_base::binary);
+            int need_to_read = file_mid1;
+            while (need_to_read != 0)
+            {
+                const int buf_size = need_to_read >= 4096 ? 4096 : need_to_read;
+                char buf[buf_size] = {0};
+                ifs.read(buf, buf_size);
+                int num = ifs.gcount();
+                if (num != buf_size)
+                {
+                    LOG(INFO, "线程1没有读取到应该数量的数据");
+                    exit(EXIT_FAILURE);
+                }
+                else
+                {
+                    need_to_read -= buf_size;
+                    int ret = send(sockfd_v[0], buf, buf_size, 0);
+                    if (ret < 0)
+                    {
+                        LOG(FATAL, "套接字:%d有问题, %s", sockfd_v[0], strerror(errno));
+                        exit(EXIT_FAILURE);
+                    }
+                }
+            }
+            ifs.close();
+            std::lock_guard<std::mutex> guard(mtx1);
+            task_finish--;
+            if (task_finish == 0)
+                cond_to_main_thread.notify_one();
+            break;
         }
         }
     }
 }
-void ThreadFunc2();
-void ThreadFunc3();
+void ThreadFunc2()
+{
+    while (true)
+    {
+        std::unique_lock<std::mutex> lock(mtx1);
+        cond_to_other_thread.wait(lock, []()
+                                  { return has_task; });
+        switch (task_opt)
+        {
+        case 1:
+        {
+            std::string upload_request = "Upload";
+            upload_request = upload_request + " " + user_base_dir + filename + " " + std::to_string(file_mid1) + "-" + std::to_string(file_mid2) + "*";
+            std::ifstream ifs(filename.c_str(), std::ios_base::binary);
+            int need_to_read = file_mid2 - file_mid1;
+            ifs.seekg(file_mid1);
+            if (ifs.rdstate() == std::ios_base::badbit)
+            {
+                LOG(FATAL, "线程2移动文件指针出错");
+                exit(EXIT_FAILURE);
+            }
+            while (need_to_read != 0)
+            {
+                const int buf_size = need_to_read >= 4096 ? 4096 : need_to_read;
+                char buf[buf_size] = {0};
+                ifs.read(buf, buf_size);
+                int num = ifs.gcount();
+                if (num != buf_size)
+                {
+                    LOG(INFO, "线程2没有读取到应该数量的数据");
+                    exit(EXIT_FAILURE);
+                }
+                else
+                {
+                    need_to_read -= buf_size;
+                    int ret = send(sockfd_v[0], buf, buf_size, 0);
+                    if (ret < 0)
+                    {
+                        LOG(FATAL, "套接字:%d有问题, %s", sockfd_v[0], strerror(errno));
+                        exit(EXIT_FAILURE);
+                    }
+                }
+            }
+            ifs.close();
+            std::lock_guard<std::mutex> guard(mtx1);
+            task_finish--;
+            if (task_finish == 0)
+                cond_to_main_thread.notify_one();
+            break;
+        }
+        }
+    }
+}
+void ThreadFunc3()
+{
+    while (true)
+    {
+        std::unique_lock<std::mutex> lock(mtx1);
+        cond_to_other_thread.wait(lock, []()
+                                  { return has_task; });
+        switch (task_opt)
+        {
+        case 1:
+        {
+            std::string upload_request = "Upload";
+            upload_request = upload_request + " " + user_base_dir + filename + " " + std::to_string(file_mid2) + "-" + std::to_string(file_end) + "*";
+            std::ifstream ifs(filename.c_str(), std::ios_base::binary);
+            int need_to_read = file_end - file_mid2;
+            ifs.seekg(file_mid2);
+            if (ifs.rdstate() == std::ios_base::badbit)
+            {
+                LOG(FATAL, "线程3移动文件指针出错");
+                exit(EXIT_FAILURE);
+            }
+            while (need_to_read != 0)
+            {
+                const int buf_size = need_to_read >= 4096 ? 4096 : need_to_read;
+                char buf[buf_size] = {0};
+                ifs.read(buf, buf_size);
+                int num = ifs.gcount();
+                if (num != buf_size)
+                {
+                    LOG(INFO, "线程3没有读取到应该数量的数据");
+                    exit(EXIT_FAILURE);
+                }
+                else
+                {
+                    need_to_read -= buf_size;
+                    int ret = send(sockfd_v[0], buf, buf_size, 0);
+                    if (ret < 0)
+                    {
+                        LOG(FATAL, "套接字:%d有问题, %s", sockfd_v[0], strerror(errno));
+                        exit(EXIT_FAILURE);
+                    }
+                }
+            }
+            ifs.close();
+            std::lock_guard<std::mutex> guard(mtx1);
+            task_finish--;
+            if (task_finish == 0)
+                cond_to_main_thread.notify_one();
+            break;
+        }
+        }
+    }
+}
 
 void Menu()
 {
@@ -96,15 +237,41 @@ void UploadFunc(const std::string &filename)
     {
         has_task = true;
         task_opt = 1;
-        file_mid = filesize / 2;
+        file_mid1 = filesize / 3;
+        file_mid2 = file_mid1 * 2;
         file_end = filesize;
-        cond.notify_all();
+        cond_to_other_thread.notify_all();
     }
     else
     {
+        std::string upload_request = "Upload";
+        upload_request = upload_request + " " + user_base_dir + filename + " " + "0" + "-" + std::to_string(filesize) + "*";
+        if (send(sockfd_v[0], upload_request.c_str(), upload_request.size(), 0) == -1)
+        {
+            LOG(FATAL, "套接字:%d出现问题, %s", sockfd_v[0], strerror(errno));
+            exit(EXIT_FAILURE);
+        }
         std::ifstream ifs(filename.c_str(), std::ios_base::binary);
-        // read一些发一些
-        ifs.read();
+        while (true)
+        {
+            char buf[4096] = {0};
+            ifs.read(buf, 4096);
+            int num = ifs.gcount();
+            if (num == 0)
+                break;
+            else
+            {
+                int ret = send(sockfd_v[0], buf, num, 0);
+                if (ret < 0)
+                {
+                    LOG(FATAL, "套接字:%d出现问题, %s", sockfd_v[0], strerror(errno));
+                    exit(EXIT_FAILURE);
+                }
+            }
+        }
+        ifs.close();
+        task_finish = 0;
+        cond_to_main_thread.notify_one();
     }
 }
 
@@ -154,7 +321,6 @@ int main()
         }
         case 1:
         {
-            std::string filename;
             std::cout << "请输入你要上传文件的文件名:";
             std::cin >> filename;
             while (HasFile(filename) == false)
@@ -162,8 +328,19 @@ int main()
                 std::cout << "请重新输入文件名:";
                 std::cin >> filename;
             }
+            task_finish = 3;
             UploadFunc(filename);
-            // 等异步线程完成工作后才能别的操作
+            std::unique_lock<std::mutex> lock(mtx2);
+            cond_to_main_thread.wait(lock, []()
+                                     { return task_finish == 0; });
+            std::cout << "文件:" << filename << "上传成功" << std::endl;
+            break;
+        }
+        case 2:
+        {
+            // 打印现有文件
+            std::cout << "请输入你要下载文件的名称:";
+            std::cin >> filename;
         }
         }
     }
