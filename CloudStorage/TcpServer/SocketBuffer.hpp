@@ -1,5 +1,6 @@
 #pragma once
 #include "../Log/Log.hpp"
+#include "RequestUtil.hpp"
 #include <vector>
 #include <algorithm>
 #include <unistd.h>
@@ -52,7 +53,21 @@ public:
         _read_idx = _write_idx = 0;
         return str;
     }
-
+    bool ReadRequestFromBuffer(std::string &request)
+    {
+        for (int i = _read_idx; i < ReadAbleSize(); i++)
+        {
+            if (_buffer[i] == '*')
+            {
+                request += _buffer[i];
+                _read_idx += (i - _read_idx + 1);
+                return true;
+            }
+            request += _buffer[i];
+        }
+        request = "";
+        return false;
+    }
     void MoveReadIdx(int size)
     {
         if (size > ReadAbleSize())
@@ -62,6 +77,7 @@ public:
         }
         _read_idx += size;
     }
+    void Reset() { _read_idx = _write_idx = 0; }
 };
 
 class SocketBuffer
@@ -71,12 +87,31 @@ public:
     Buffer _outbuffer;
     int _sockfd;
 
+    int _has_a_request;
+    std::string _raw_request;
+    std::string _request_method;
+    std::string _request_filename;
+    std::pair<int, int> _request_file_range;
+    int need_to_recv_size;
+    int recved_size;
+
     SocketBuffer(int sockfd)
-        : _sockfd(sockfd) {}
-    ~SocketBuffer() 
+        : _sockfd(sockfd), _has_a_request(false) {}
+
+    void SetRawRequest(std::string request)
     {
-        int ret = close(_sockfd); 
-        if(ret == -1)
+        _raw_request = request;
+        _request_method = RequestUtil::ParseForMethod(request);
+        _request_filename = RequestUtil::ParseForFilename(request);
+        _request_file_range = RequestUtil::ParseForFileRange(request);
+        need_to_recv_size = _request_file_range.second - _request_file_range.first;
+        recved_size = 0;
+    }
+
+    ~SocketBuffer()
+    {
+        int ret = close(_sockfd);
+        if (ret == -1)
             LOG(INFO, "close sockfd:%d fail, %s", _sockfd, strerror(errno));
     }
 };

@@ -12,6 +12,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <unordered_map>
+#include <fstream>
 
 class EpollThread
 {
@@ -29,17 +30,23 @@ private:
 
     void ProcessData(const SocketBufferPtr &socket_buffer)
     {
-        int fd = socket_buffer->_sockfd;
-        Buffer &inbuffer = socket_buffer->_inbuffer;
-        Buffer &outbuffer = socket_buffer->_outbuffer;
+        if (socket_buffer->_has_a_request == false)
+        {
+            std::string req;
+            if (socket_buffer->_inbuffer.ReadRequestFromBuffer(req) == false)
+            {
+                LOG(FATAL, "套接字:%d有读事件就绪, 但是无法从发来的数据解析出一个请求", socket_buffer->_sockfd);
+                exit(EXIT_FAILURE);
+            }
+            socket_buffer->SetRawRequest(req);
+            socket_buffer->_has_a_request = true;
+        }
 
-        std::string ret = "***" + inbuffer.ReadFromBuffer() + "***";
-        outbuffer.WriteInBuffer(ret.size(), &ret[0]);
+        std::ofstream ofs(socket_buffer->_request_filename);
+        while(socket_buffer->need_to_recv_size != socket_buffer->recved_size)
+        {
 
-        struct epoll_event event;
-        event.data.fd = fd;
-        event.events = EPOLLIN | EPOLLOUT | EPOLLERR;
-        EpollCtl(EPOLL_CTL_MOD, fd, &event);
+        }
     }
 
     void ReadEventFunc(const SocketBufferPtr &socket_buffer)
