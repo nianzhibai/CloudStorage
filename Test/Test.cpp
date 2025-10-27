@@ -26,9 +26,11 @@ int main()
     //     exit(EXIT_FAILURE);
     // }
 
-    // 目录mkdir创建不能嵌套
-    std::string filename = "./Hello/helloworld.txt";
-    FileNameOk(filename);
+    // // 目录mkdir创建不能嵌套
+    // std::string filename = "./Hello/helloworld.txt";
+    // FileNameOk(filename);
+    std::string filename = "./You/And/Me/youandme.txt";
+    FileUtil::FileNameOk(filename);
 
     return 0;
 }
