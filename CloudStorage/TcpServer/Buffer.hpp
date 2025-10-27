@@ -1,9 +1,10 @@
 #pragma once
 #include "../Log/Log.hpp"
 #include "Util.hpp"
+#include <sys/socket.h>
+#include <unistd.h>
 #include <vector>
 #include <algorithm>
-#include <unistd.h>
 
 class Buffer
 {
@@ -11,8 +12,9 @@ private:
     std::vector<char> _buffer;
     uint _read_idx;
     uint _write_idx;
+    int _sockfd;
 
-    void Expand(int size)
+    void ExpandCapacity(int size)
     {
         if (_buffer.size() - _write_idx >= size)
             return;
@@ -25,28 +27,64 @@ private:
         }
         else
         {
-            _buffer.resize(_buffer.size() * 2 + size);
+            _buffer.reserve(_buffer.size() * 2 + size);
             return;
         }
     }
-
+    
 public:
-    Buffer()
-        : _buffer(4096, 0), _read_idx(0), _write_idx(0) {}
+    Buffer(int sockfd)
+        : _buffer(1024 * 1024 * 10, 0), _read_idx(0), _write_idx(0), _sockfd(sockfd) {}
 
-    int WriteAbleSize() { return _buffer.size() - _write_idx + _read_idx; }
+    int WriteAbleSize() { return _buffer.capacity() - _write_idx + _read_idx; }
     int ReadAbleSize() { return _write_idx - _read_idx; }
 
     char *ReadPos() { return &_buffer[_read_idx]; }
     char *WritePos() { return &_buffer[_write_idx]; }
 
+    void RecvInBuffer()
+    {
+        while (true)
+        {
+            if (ReadAbleSize() < 4096)
+            {
+                ExpandCapacity(4096);
+            }
+            int ret = recv(_sockfd, &_buffer[_write_idx], 1024, 0);
+            if (ret < 0)
+            {
+                if (errno == EWOULDBLOCK || errno == EAGAIN)
+                    return;
+                if (errno == EINTR)
+                    continue;
+                else
+                {
+                    LOG(FATAL, "套接字出现问题, %s", strerror(errno));
+                    exit(EXIT_FAILURE);
+                }
+            }
+            else if (ret == 0)
+            {
+                LOG(FATAL, "客户端要关闭连接, 这是不正常的, 宝贝代码写错了吧");
+                exit(EXIT_FAILURE);
+            }
+            else
+            {
+                _write_idx += ret;
+            }
+        }
+    }
+    void OutWardData(std::vector<char> &v)
+    {
+    }
+
     void WriteInBuffer(uint size, const void *data)
     {
-        Expand(size);
+        ExpandCapacity(size);
         std::copy((const char *)data, (const char *)data + size, WritePos());
         _write_idx += size;
     }
-    const std::string ReadFromBuffer()
+    const std::string ReadAllFromBuffer()
     {
         std::string str(ReadAbleSize(), 0);
         std::copy(ReadPos(), WritePos(), &str[0]);
@@ -78,40 +116,5 @@ public:
         _read_idx += size;
     }
     void Reset() { _read_idx = _write_idx = 0; }
-};
-
-class SocketBuffer
-{
-public:
-    Buffer _inbuffer;
-    Buffer _outbuffer;
-    int _sockfd;
-
-    int _has_a_request;
-    std::string _raw_request;
-    std::string _request_method;
-    std::string _request_filename;
-    std::pair<int, int> _request_file_range;
-    int need_to_recv_size;
-    int recved_size;
-
-    SocketBuffer(int sockfd)
-        : _sockfd(sockfd), _has_a_request(false) {}
-
-    void SetRawRequest(std::string request)
-    {
-        _raw_request = request;
-        _request_method = RequestUtil::ParseForMethod(request);
-        _request_filename = RequestUtil::ParseForFilename(request);
-        _request_file_range = RequestUtil::ParseForFileRange(request);
-        need_to_recv_size = _request_file_range.second - _request_file_range.first;
-        recved_size = 0;
-    }
-
-    ~SocketBuffer()
-    {
-        int ret = close(_sockfd);
-        if (ret == -1)
-            LOG(INFO, "close sockfd:%d fail, %s", _sockfd, strerror(errno));
-    }
+    int Capacity() { return _buffer.capacity(); }
 };

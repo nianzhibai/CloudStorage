@@ -1,9 +1,8 @@
 // 文件描述符监听事件模块
 #pragma once
 #include "../Log/Log.hpp"
-#include "SocketBuffer.hpp"
+#include "Buffer.hpp"
 #include <sys/epoll.h>
-#include <sys/eventfd.h>
 #include <sys/eventfd.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -16,137 +15,65 @@
 
 class EpollThread
 {
-    using SocketBufferPtr = std::shared_ptr<SocketBuffer>;
+    using BufferPtr = std::shared_ptr<Buffer>;
 
 private:
     std::thread _t;
     int _efd;
     int _eventfd;
-    std::unordered_map<int, SocketBufferPtr> _hash;
+    std::unordered_map<int, BufferPtr> _hash;
 
     std::mutex _mtx;
     bool _epoll_ctl;
     std::condition_variable cond;
 
-    void ProcessData(const SocketBufferPtr &socket_buffer)
+    void ProcessData(const BufferPtr &buffer)
     {
-        if (socket_buffer->_has_a_request == false)
-        {
-            std::string req;
-            if (socket_buffer->_inbuffer.ReadRequestFromBuffer(req) == false)
-            {
-                LOG(FATAL, "套接字:%d有读事件就绪, 但是无法从发来的数据解析出一个请求", socket_buffer->_sockfd);
-                exit(EXIT_FAILURE);
-            }
-            socket_buffer->SetRawRequest(req);
-            socket_buffer->_has_a_request = true;
-        }
+        // if (buffer->_has_a_request == false)
+        // {
+        //     std::string req;
+        //     if (socket_buffer->_inbuffer.ReadRequestFromBuffer(req) == false)
+        //     {
+        //         LOG(FATAL, "套接字:%d有读事件就绪, 但是无法从发来的数据解析出一个请求", socket_buffer->_sockfd);
+        //         exit(EXIT_FAILURE);
+        //     }
+        //     socket_buffer->SetRawRequest(req);
+        //     socket_buffer->_has_a_request = true;
+        // }
 
-        std::ofstream ofs(socket_buffer->_request_filename);
-        while(socket_buffer->need_to_recv_size != socket_buffer->recved_size)
-        {
+        // std::ofstream ofs(socket_buffer->_request_filename);
+        // while(socket_buffer->need_to_recv_size != socket_buffer->recved_size)
+        // {
 
-        }
+        // }
     }
 
-    void ReadEventFunc(const SocketBufferPtr &socket_buffer)
+    void ReadEventFunc(const BufferPtr &buffer)
     {
-        int fd = socket_buffer->_sockfd;
-        char buf[4096] = {0};
-        while (true)
-        {
-            int ret = recv(fd, buf, 4096, 0);
-            if (ret < 0)
-            {
-                if (errno == EAGAIN | errno == EWOULDBLOCK)
-                    break;
-                else if (errno == EINTR)
-                    continue;
-                else
-                {
-                    LOG(INFO, "recv返回值小于0, 套接字:%d出现问题", fd);
-                    EpollCtl(EPOLL_CTL_DEL, fd, nullptr);
-                    break;
-                }
-            }
-            else if (ret == 0)
-            {
-                LOG(INFO, "recv返回值为0, fd:%d", fd);
-                Buffer &outbuf = socket_buffer->_outbuffer;
-                if (outbuf.ReadAbleSize() != 0)
-                {
-                    struct epoll_event event;
-                    event.data.fd = fd;
-                    event.events = EPOLLIN | EPOLLOUT | EPOLLRDHUP | EPOLLERR;
-                    EpollCtl(EPOLL_CTL_MOD, fd, &event);
-                    break;
-                }
-                else
-                {
-                    EpollCtl(EPOLL_CTL_DEL, fd, nullptr);
-                    return;
-                }
-            }
-            else
-            {
-                socket_buffer->_inbuffer.WriteInBuffer(ret, buf);
-            }
-        }
-        ProcessData(socket_buffer);
+        buffer->RecvInBuffer();
+        ProcessData(buffer);
     }
 
-    void WriteEventFunc(const SocketBufferPtr &socket_buffer)
+    void WriteEventFunc(const BufferPtr &buffer)
     {
-        int fd = socket_buffer->_sockfd;
-        Buffer &outbuffer = socket_buffer->_outbuffer;
-        while (outbuffer.ReadAbleSize())
-        {
-            int ret = send(fd, outbuffer.ReadPos(), outbuffer.ReadAbleSize(), 0);
-            if (ret == -1)
-            {
-                if (errno == EWOULDBLOCK | errno == EAGAIN)
-                    break;
-                else if (errno == EINTR)
-                    continue;
-                else
-                {
-                    LOG(INFO, "套接字:%d出现错误, 导致send失败. %s", fd, strerror(errno));
-                    EpollCtl(EPOLL_CTL_DEL, fd, nullptr);
-                    break;
-                }
-            }
-            else if (ret == 0)
-            {
-                LOG(INFO, "写入了0个数据");
-                break;
-            }
-            else
-            {
-                outbuffer.MoveReadIdx(ret);
-            }
-        }
+    }
 
-        struct epoll_event event;
-        event.data.fd = fd;
-        event.events = EPOLLIN | EPOLLRDHUP | EPOLLERR;
-        EpollCtl(EPOLL_CTL_MOD, fd, &event);
-    }
-    void CloseEventFunc(const SocketBufferPtr &socket_buffer)
+    void CloseEventFunc(const BufferPtr &buffer)
     {
-        if (socket_buffer->_outbuffer.ReadAbleSize() != 0)
-        {
-            struct epoll_event event;
-            event.data.fd = socket_buffer->_sockfd;
-            event.events = EPOLLIN | EPOLLOUT | EPOLLHUP;
-            EpollCtl(EPOLL_CTL_ADD, socket_buffer->_sockfd, &event);
-            return;
-        }
-        EpollCtl(EPOLL_CTL_DEL, socket_buffer->_sockfd, nullptr);
+        // if (socket_buffer->_outbuffer.ReadAbleSize() != 0)
+        // {
+        //     struct epoll_event event;
+        //     event.data.fd = socket_buffer->_sockfd;
+        //     event.events = EPOLLIN | EPOLLOUT | EPOLLHUP;
+        //     EpollCtl(EPOLL_CTL_ADD, socket_buffer->_sockfd, &event);
+        //     return;
+        // }
+        // EpollCtl(EPOLL_CTL_DEL, socket_buffer->_sockfd, nullptr);
     }
-    void ErrorEventFunc(const SocketBufferPtr &socket_buffer)
+    void ErrorEventFunc(const BufferPtr &buffer)
     {
-        LOG(INFO, "套接字:%d出现问题", socket_buffer->_sockfd);
-        EpollCtl(EPOLL_CTL_DEL, socket_buffer->_sockfd, nullptr);
+        // LOG(INFO, "套接字:%d出现问题", socket_buffer->_sockfd);
+        // EpollCtl(EPOLL_CTL_DEL, socket_buffer->_sockfd, nullptr);
     }
 
     void ReadyEventsHandle(int n, struct epoll_event *ready_events)
@@ -174,8 +101,6 @@ private:
             }
             if (events & EPOLLIN)
             {
-                // LOG(INFO, "要对套接字:%d, 调用ReadEventFunc", fd);
-                // LOG(INFO, "这个套接字对应的SocketBuffer%p", _hash[fd]);
                 ReadEventFunc(_hash[fd]);
             }
             if (events & EPOLLOUT)
@@ -269,7 +194,7 @@ public:
 
         if (op == EPOLL_CTL_ADD)
         {
-            SocketBufferPtr ptr = std::make_shared<SocketBuffer>(fd);
+            BufferPtr ptr = std::make_shared<Buffer>(fd);
             _hash[fd] = ptr;
             LOG(INFO, "套接字:%d添加到了efd:%d中", fd, _efd);
         }
