@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <vector>
 #include <algorithm>
+#include <mutex>
+#include <condition_variable>
 
 class Buffer
 {
@@ -33,6 +35,9 @@ private:
     }
     
 public:
+    std::mutex _mtx;
+    std::condition_variable _cond;
+    
     Buffer(int sockfd)
         : _buffer(1024 * 1024 * 10, 0), _read_idx(0), _write_idx(0), _sockfd(sockfd) {}
 
@@ -76,6 +81,9 @@ public:
     }
     void OutWardData(std::vector<char> &v)
     {
+        v.resize(ReadAbleSize());
+        std::copy(ReadPos(), WritePos(), v.begin());
+        _read_idx = _write_idx = 0;
     }
 
     void WriteInBuffer(uint size, const void *data)

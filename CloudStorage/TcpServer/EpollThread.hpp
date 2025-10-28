@@ -46,11 +46,17 @@ private:
         // {
 
         // }
+        
+        // 处理第一次任务（设置标识为）
+        // 换新等待条件变量的线程
     }
 
     void ReadEventFunc(const BufferPtr &buffer)
     {
-        buffer->RecvInBuffer();
+        {
+            std::lock_guard<std::mutex> guard(buffer->_mtx);
+            buffer->RecvInBuffer();
+        }
         ProcessData(buffer);
     }
 

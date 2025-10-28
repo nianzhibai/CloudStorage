@@ -1,6 +1,6 @@
 #include "../Log/Log.hpp"
 #include "../TcpServer/Socket.hpp"
-#include "../TcpServer/SocketBuffer.hpp"
+#include "../TcpServer/Buffer.hpp"
 #include "../TcpServer/EpollThread.hpp"
 #include "../TcpServer/Acceptor.hpp"
 
