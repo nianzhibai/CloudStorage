@@ -31,6 +31,8 @@ void ThreadFunc1()
         std::unique_lock<std::mutex> lock(mtx1);
         cond_to_other_thread.wait(lock, []()
                                   { return has_task; });
+        lock.unlock();
+        LOG(INFO, "我是线程1, 现在有任务了");
         switch (task_opt)
         {
         case 1:
@@ -39,6 +41,7 @@ void ThreadFunc1()
             upload_request = upload_request + " " + user_base_dir + filename + " " + "0" + "-" + std::to_string(file_mid1) + "*";
             std::ifstream ifs(filename.c_str(), std::ios_base::binary);
             int need_to_read = file_mid1;
+            LOG(INFO, "线程1需要给服务器发送文件%s中%d到%d的数据", filename.c_str(), 0, file_mid1);
             while (need_to_read != 0)
             {
                 const int buf_size = need_to_read >= 4096 ? 4096 : need_to_read;
@@ -59,9 +62,14 @@ void ThreadFunc1()
                         LOG(FATAL, "套接字:%d有问题, %s", sockfd_v[0], strerror(errno));
                         exit(EXIT_FAILURE);
                     }
+                    if (ret > 0)
+                    {
+                        LOG(INFO, "线程1成功向服务器发送了%d字节数据, 这和预期%d", ret, ret == buf_size);
+                    }
                 }
             }
             ifs.close();
+            LOG(INFO, "线程1给服务器发送文件%s中%d到%d的数据Success", filename.c_str(), 0, file_mid1);
             std::lock_guard<std::mutex> guard(mtx1);
             task_finish--;
             if (task_finish == 0)
@@ -78,6 +86,8 @@ void ThreadFunc2()
         std::unique_lock<std::mutex> lock(mtx1);
         cond_to_other_thread.wait(lock, []()
                                   { return has_task; });
+        lock.unlock();
+        LOG(INFO, "我是线程2, 现在有任务了");
         switch (task_opt)
         {
         case 1:
@@ -86,6 +96,7 @@ void ThreadFunc2()
             upload_request = upload_request + " " + user_base_dir + filename + " " + std::to_string(file_mid1) + "-" + std::to_string(file_mid2) + "*";
             std::ifstream ifs(filename.c_str(), std::ios_base::binary);
             int need_to_read = file_mid2 - file_mid1;
+            LOG(INFO, "线程2需要给服务器发送文件%s中%d到%d的数据", filename.c_str(), file_mid1, file_mid2);
             ifs.seekg(file_mid1);
             if (ifs.rdstate() == std::ios_base::badbit)
             {
@@ -112,9 +123,15 @@ void ThreadFunc2()
                         LOG(FATAL, "套接字:%d有问题, %s", sockfd_v[0], strerror(errno));
                         exit(EXIT_FAILURE);
                     }
+                    if (ret > 0)
+                    {
+                        LOG(INFO, "线程2成功向服务器发送了%d字节数据, 这和预期%d", ret, ret == buf_size);
+                    }
                 }
             }
             ifs.close();
+            LOG(INFO, "线程2给服务器发送文件%s中%d到%d的数据Success", filename.c_str(), file_mid1, file_mid2);
+
             std::lock_guard<std::mutex> guard(mtx1);
             task_finish--;
             if (task_finish == 0)
@@ -131,6 +148,9 @@ void ThreadFunc3()
         std::unique_lock<std::mutex> lock(mtx1);
         cond_to_other_thread.wait(lock, []()
                                   { return has_task; });
+        lock.unlock();
+        LOG(INFO, "我是线程3, 现在有任务了");
+
         switch (task_opt)
         {
         case 1:
@@ -139,6 +159,8 @@ void ThreadFunc3()
             upload_request = upload_request + " " + user_base_dir + filename + " " + std::to_string(file_mid2) + "-" + std::to_string(file_end) + "*";
             std::ifstream ifs(filename.c_str(), std::ios_base::binary);
             int need_to_read = file_end - file_mid2;
+            LOG(INFO, "线程3需要给服务器发送文件%s中%d到%d的数据", filename.c_str(), file_mid2, file_end);
+
             ifs.seekg(file_mid2);
             if (ifs.rdstate() == std::ios_base::badbit)
             {
@@ -165,9 +187,14 @@ void ThreadFunc3()
                         LOG(FATAL, "套接字:%d有问题, %s", sockfd_v[0], strerror(errno));
                         exit(EXIT_FAILURE);
                     }
+                    if (ret > 0)
+                    {
+                        LOG(INFO, "线程3成功向服务器发送了%d字节数据, 这和预期%d", ret, ret == buf_size);
+                    }
                 }
             }
             ifs.close();
+            LOG(INFO, "线程3给服务器发送文件%s中%d到%d的数据Success", filename.c_str(), file_mid2, file_end);
             std::lock_guard<std::mutex> guard(mtx1);
             task_finish--;
             if (task_finish == 0)
@@ -183,8 +210,8 @@ void Menu()
     std::cout << "**************************************" << std::endl;
     std::cout << "Please select the corresponding number" << std::endl;
     std::cout << "*****0.Exit                      *****" << std::endl;
-    std::cout << "*****1.UploadFile  2.DownloadFile*****" << std::endl;
-    std::cout << "*****3.DeleteFile  4.ShowCurFiles*****" << std::endl;
+    std::cout << "*****1.Upload         2.Download *****" << std::endl;
+    std::cout << "*****3.Delete         4.ShowFiles*****" << std::endl;
     std::cout << "**************************************" << std::endl;
 }
 
@@ -233,7 +260,7 @@ int FileSize(const std::string &filename)
 void UploadFunc(const std::string &filename)
 {
     int filesize = FileSize(filename);
-    if (filesize > 1024 * 1024 * 100)
+    if (filesize > 1024 * 1024 * 10)
     {
         has_task = true;
         task_opt = 1;
@@ -333,6 +360,9 @@ int main()
             std::unique_lock<std::mutex> lock(mtx2);
             cond_to_main_thread.wait(lock, []()
                                      { return task_finish == 0; });
+            has_task = false;
+            task_finish = 3;
+            task_opt = -1;
             std::cout << "文件:" << filename << "上传成功" << std::endl;
             break;
         }

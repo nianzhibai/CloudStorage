@@ -1,6 +1,7 @@
 // 文件描述符监听事件模块
 #pragma once
 #include "../Log/Log.hpp"
+#include "ThreadPool.hpp"
 #include "Buffer.hpp"
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
@@ -12,6 +13,8 @@
 #include <condition_variable>
 #include <unordered_map>
 #include <fstream>
+
+ThreadPool threadpool;
 
 class EpollThread
 {
@@ -27,37 +30,56 @@ private:
     bool _epoll_ctl;
     std::condition_variable cond;
 
-    void ProcessData(const BufferPtr &buffer)
+    void Dispatcher(const BufferPtr &buffer)
     {
-        // if (buffer->_has_a_request == false)
-        // {
-        //     std::string req;
-        //     if (socket_buffer->_inbuffer.ReadRequestFromBuffer(req) == false)
-        //     {
-        //         LOG(FATAL, "套接字:%d有读事件就绪, 但是无法从发来的数据解析出一个请求", socket_buffer->_sockfd);
-        //         exit(EXIT_FAILURE);
-        //     }
-        //     socket_buffer->SetRawRequest(req);
-        //     socket_buffer->_has_a_request = true;
-        // }
+        LOG(INFO, "分发套接字%d上的任务", buffer->_sockfd);
 
-        // std::ofstream ofs(socket_buffer->_request_filename);
-        // while(socket_buffer->need_to_recv_size != socket_buffer->recved_size)
-        // {
-
-        // }
-        
-        // 处理第一次任务（设置标识为）
-        // 换新等待条件变量的线程
+        std::string request;
+        if (buffer->ReadRequestFromBuffer(request) == false)
+        {
+            LOG(FATAL, "描述符:%d第一次触发读事件, 但是无法解析出一个请求", buffer->_sockfd);
+            exit(EXIT_FAILURE);
+        }
+        LOG(INFO, "套接字:%d上客户端的请求是:%s***", buffer->_sockfd, request.c_str());
+        buffer->_has_a_request = true;
+        std::string method = RequestUtil::ParseForMethod(request);
+        buffer->_req_method = method;
+        std::string filename = RequestUtil::ParseForFilename(request);
+        std::pair<int, int> file_range = RequestUtil::ParseForFileRange(request);
+        if (method == "Upload")
+        {
+            threadpool.AddTask(filename, file_range.first, file_range.second, buffer);
+            threadpool._cond.notify_one();
+        }
+        else if (method == "Download")
+        {
+        }
+        else if (method == "Delete")
+        {
+        }
+        else if (method == "ShowFiles")
+        {
+        }
+        else
+        {
+            LOG(INFO, "未知请求方法, method:%s", method.c_str());
+            exit(EXIT_FAILURE);
+        }
     }
 
     void ReadEventFunc(const BufferPtr &buffer)
     {
+        LOG(INFO, "套接字:%d上有读事件就绪了", buffer->_sockfd);
         {
             std::lock_guard<std::mutex> guard(buffer->_mtx);
             buffer->RecvInBuffer();
         }
-        ProcessData(buffer);
+        if (buffer->_has_a_request == false)
+            Dispatcher(buffer);
+        if (buffer->_has_a_request == true && buffer->_req_method == "Upload")
+            buffer->_cond.notify_one();
+        else
+            buffer->Clear();
     }
 
     void WriteEventFunc(const BufferPtr &buffer)

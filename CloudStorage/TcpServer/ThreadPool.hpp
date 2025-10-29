@@ -28,7 +28,6 @@ private:
     std::vector<Task> _tasks;
     std::vector<std::thread> _threads;
     std::mutex _mtx;
-    std::condition_variable _cond;
 
     void ThreadFunc()
     {
@@ -36,9 +35,10 @@ private:
         {
             std::unique_lock<std::mutex> lock1(_mtx);
             _cond.wait(lock1, [this]()
-                       { !_tasks.empty(); });
+                       { return !_tasks.empty(); });
             Task task = std::move(_tasks.back());
             _tasks.pop_back();
+            LOG(INFO, "%p线程拿到套接字%d上的任务, 落地%s文件的%d到%d的内容", std::this_thread::get_id(), task.ptr->_sockfd, task.filename.c_str(), task.begin, task.end);
             lock1.unlock();
 
             std::ofstream ofs(task.filename, std::ios_base::binary);
@@ -70,10 +70,15 @@ private:
                 task.begin += task.data.size();
             }
             ofs.close();
+            task.ptr->_has_a_request = false;
+            task.ptr->Clear();
+            LOG(INFO, "%p线程落地%s文件的%d到%d的内容Success", std::this_thread::get_id(), task.filename.c_str(), task.begin, task.end);
         }
     }
 
 public:
+    std::condition_variable _cond;
+
     ThreadPool()
     {
         for (int i = 0; i < 5; i++)
