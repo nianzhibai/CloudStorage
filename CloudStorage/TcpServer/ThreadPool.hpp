@@ -28,6 +28,7 @@ private:
     std::vector<Task> _tasks;
     std::vector<std::thread> _threads;
     std::mutex _mtx;
+    std::condition_variable _cond;
 
     void ThreadFunc()
     {
@@ -40,14 +41,22 @@ private:
             _tasks.pop_back();
             LOG(INFO, "%p线程拿到套接字%d上的任务, 落地%s文件的%d到%d的内容", std::this_thread::get_id(), task.ptr->_sockfd, task.filename.c_str(), task.begin, task.end);
             lock1.unlock();
-
-            std::ofstream ofs(task.filename, std::ios_base::binary);
+            std::ofstream ofs(task.filename, std::ios_base::binary | std::ios_base::in | std::ios_base::out);
             if (ofs.rdstate() != ofs.goodbit)
             {
                 LOG(INFO, "文件没有打开成功, 文件:%s", task.filename.c_str());
                 exit(EXIT_FAILURE);
             }
-            while (task.begin != task.end)
+            ofs.seekp(task.begin);
+            if (ofs.rdstate() != ofs.goodbit)
+            {
+                LOG(INFO, "seekp操作失败, 文件:%s", task.filename.c_str());
+                exit(EXIT_FAILURE);
+            }
+            // LOG(INFO, "线程%p打开文件起始位置是%d", std::this_thread::get_id(), ofs.tellp());
+
+            int tmp = task.begin;
+            while (tmp != task.end)
             {
                 std::unique_lock<std::mutex> lock2(task.ptr->_mtx);
                 task.ptr->_cond.wait(lock2, [&task]()
@@ -55,30 +64,23 @@ private:
                 task.ptr->OutWardData(task.data);
                 lock2.unlock();
 
-                ofs.seekp(task.begin);
-                if (ofs.rdstate() != ofs.goodbit)
-                {
-                    LOG(INFO, "seekp操作失败, 文件:%s", task.filename.c_str());
-                    exit(EXIT_FAILURE);
-                }
+                // LOG(INFO, "线程%p准备写入数据, 写入位置%d", std::this_thread::get_id(), ofs.tellp());
                 ofs.write(&task.data[0], task.data.size());
                 if (ofs.rdstate() != ofs.goodbit)
                 {
                     LOG(INFO, "seekp操作失败, 文件:%s", task.filename.c_str());
                     exit(EXIT_FAILURE);
                 }
-                task.begin += task.data.size();
+                tmp += task.data.size();
             }
             ofs.close();
             task.ptr->_has_a_request = false;
             task.ptr->Clear();
-            LOG(INFO, "%p线程落地%s文件的%d到%d的内容Success", std::this_thread::get_id(), task.filename.c_str(), task.begin, task.end);
+            LOG(INFO, "%p线程落地%s文件的%d到%d的内容Success", std::this_thread::get_id(), task.filename.c_str(), task.begin, task.end, ofs.tellp());
         }
     }
 
 public:
-    std::condition_variable _cond;
-
     ThreadPool()
     {
         for (int i = 0; i < 5; i++)

@@ -52,7 +52,7 @@ public:
 
     void RecvInBuffer()
     {
-        LOG(INFO, "开始读取套接字:%d上的数据", _sockfd);
+        // LOG(INFO, "开始读取套接字:%d上的数据", _sockfd);
         while (true)
         {
             if (ReadAbleSize() < 4096)
@@ -64,7 +64,7 @@ public:
             {
                 if (errno == EWOULDBLOCK || errno == EAGAIN)
                 {
-                    LOG(INFO, "套接字:%d本次数据读完了", _sockfd);
+                    // LOG(INFO, "套接字:%d本次数据读完了", _sockfd);
                     return;
                 }
                 if (errno == EINTR)
@@ -92,14 +92,18 @@ public:
     {
         for (int i = _read_idx; i < ReadAbleSize(); i++)
         {
-            if (_buffer[i] == '*')
+            if (i + 1 < ReadAbleSize() && i + 2 < ReadAbleSize() &&
+                _buffer[i] == '*' && _buffer[i + 1] == '.' && _buffer[i + 2] == '*')
             {
-                request += _buffer[i];
-                _read_idx += (i - _read_idx + 1);
+                request += "*.*";
+                _read_idx += (i - _read_idx + 3);
+                // LOG(INFO, "从套接字%d缓冲区解析出一个请求:%s", _sockfd, request.c_str());
+                // std::cout << "请求字符串大小:" << request.size() << std::endl;
                 return true;
             }
             request += _buffer[i];
         }
+        LOG(INFO, "无法从套接字%d缓冲区解析出一个请求, 缓冲区目前有%d可读数据", _sockfd, ReadAbleSize());
         request = "";
         return false;
     }

@@ -40,11 +40,11 @@ private:
         }
     }
 
-    void Log(LogLevel level, const std::string& filename, int line, const std::string &msg_format, va_list ap)
+    void Log(LogLevel level, const std::string &filename, int line, const std::string &msg_format, va_list ap)
     {
 
         char msg[MsgSize] = {0};
-        vsnprintf(msg, MsgSize , msg_format.c_str(), ap);
+        vsnprintf(msg, MsgSize, msg_format.c_str(), ap);
 
         char time_str[50] = {0};
         time_t t;
@@ -52,17 +52,15 @@ private:
         struct tm *broken_down_t = localtime(&t);
         strftime(time_str, 50, "%m-%d %T", broken_down_t);
 
-
         std::string final_msg = "[" + LevelToString(level) + "]";
         final_msg = final_msg + "[" + time_str + "]";
         final_msg = final_msg + "[" + filename + ":" + std::to_string(line) + "]";
         final_msg += msg;
         std::cout << final_msg << std::endl;
-
     }
 
 public:
-    void operator()(LogLevel level, const std::string& filename, int line, const std::string &msg_format, ...)
+    void operator()(LogLevel level, const std::string &filename, int line, const std::string &msg_format, ...)
     {
         va_list ap;
         va_start(ap, msg_format);

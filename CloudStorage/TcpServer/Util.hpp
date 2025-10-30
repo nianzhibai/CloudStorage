@@ -83,10 +83,10 @@ public:
             pos = filename.find('/', pos + 1);
         }
 
-        int fd = creat(filename.c_str(), 0666);
+        int fd = open(filename.c_str(), O_CREAT, 0666);
         if (fd == -1)
         {
-            LOG(FATAL, "creat失败, filename:%s, %s", filename.c_str(), strerror(errno));
+            LOG(FATAL, "open函数调用失败, filename:%s, %s", filename.c_str(), strerror(errno));
             exit(EXIT_FAILURE);
         }
         if (close(fd) == -1)

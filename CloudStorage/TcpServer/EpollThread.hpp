@@ -32,7 +32,7 @@ private:
 
     void Dispatcher(const BufferPtr &buffer)
     {
-        LOG(INFO, "分发套接字%d上的任务", buffer->_sockfd);
+        // LOG(INFO, "分发套接字%d上的任务", buffer->_sockfd);
 
         std::string request;
         if (buffer->ReadRequestFromBuffer(request) == false)
@@ -40,7 +40,7 @@ private:
             LOG(FATAL, "描述符:%d第一次触发读事件, 但是无法解析出一个请求", buffer->_sockfd);
             exit(EXIT_FAILURE);
         }
-        LOG(INFO, "套接字:%d上客户端的请求是:%s***", buffer->_sockfd, request.c_str());
+        // LOG(INFO, "套接字:%d上客户端的请求是:%s", buffer->_sockfd, request.c_str());
         buffer->_has_a_request = true;
         std::string method = RequestUtil::ParseForMethod(request);
         buffer->_req_method = method;
@@ -48,8 +48,8 @@ private:
         std::pair<int, int> file_range = RequestUtil::ParseForFileRange(request);
         if (method == "Upload")
         {
+            FileUtil::FileNameOk(filename);
             threadpool.AddTask(filename, file_range.first, file_range.second, buffer);
-            threadpool._cond.notify_one();
         }
         else if (method == "Download")
         {
@@ -69,7 +69,7 @@ private:
 
     void ReadEventFunc(const BufferPtr &buffer)
     {
-        LOG(INFO, "套接字:%d上有读事件就绪了", buffer->_sockfd);
+        // LOG(INFO, "套接字:%d上有读事件就绪了", buffer->_sockfd);
         {
             std::lock_guard<std::mutex> guard(buffer->_mtx);
             buffer->RecvInBuffer();
