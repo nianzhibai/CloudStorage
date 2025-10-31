@@ -33,7 +33,6 @@ private:
     void Dispatcher(const BufferPtr &buffer)
     {
         // LOG(INFO, "分发套接字%d上的任务", buffer->_sockfd);
-
         std::string request;
         if (buffer->ReadRequestFromBuffer(request) == false)
         {
@@ -88,15 +87,8 @@ private:
 
     void CloseEventFunc(const BufferPtr &buffer)
     {
-        // if (socket_buffer->_outbuffer.ReadAbleSize() != 0)
-        // {
-        //     struct epoll_event event;
-        //     event.data.fd = socket_buffer->_sockfd;
-        //     event.events = EPOLLIN | EPOLLOUT | EPOLLHUP;
-        //     EpollCtl(EPOLL_CTL_ADD, socket_buffer->_sockfd, &event);
-        //     return;
-        // }
-        // EpollCtl(EPOLL_CTL_DEL, socket_buffer->_sockfd, nullptr);
+        close(buffer->_sockfd);
+        LOG(INFO, "有客户端退出, 套接字%d关闭", buffer->_sockfd);
     }
     void ErrorEventFunc(const BufferPtr &buffer)
     {
