@@ -244,27 +244,6 @@ void Menu()
     std::cout << "请输入功能前面对应的数字:";
 }
 
-void ExitFunc()
-{
-    {
-        std::lock_guard<std::mutex> guard(mtx1);
-        exit_sign = true;
-    }
-    cond_to_other_thread.notify_all();
-
-    for (auto e : sockfd_v)
-    {
-        if (close(e) == -1)
-        {
-            LOG(FATAL, "关闭套接字失败:%d, %s", e, strerror(errno));
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    std::cout << "下次见😄" << std::endl;
-    exit(EXIT_SUCCESS);
-}
-
 bool HasFile(const std::string &filename)
 {
     struct stat statbuf;
@@ -295,6 +274,26 @@ int FileSize(const std::string &filename)
     return filesize;
 }
 
+void ExitFunc()
+{
+    {
+        std::lock_guard<std::mutex> guard(mtx1);
+        exit_sign = true;
+    }
+    cond_to_other_thread.notify_all();
+
+    for (auto e : sockfd_v)
+    {
+        if (close(e) == -1)
+        {
+            LOG(FATAL, "关闭套接字失败:%d, %s", e, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    std::cout << "下次见😄" << std::endl;
+    exit(EXIT_SUCCESS);
+}
 void UploadFunc(const std::string &filename)
 {
     int filesize = FileSize(filename);
@@ -342,6 +341,29 @@ void UploadFunc(const std::string &filename)
         task_finish = 0;
         cond_to_main_thread.notify_one();
     }
+}
+void ShowFilesFunc()
+{
+    std::string request = std::string("ShowFiles") + " " + user_base_dir + " " + "0" + "-" + "0" + "*.*";
+    int ret = send(sockfd_v[0], request.c_str(), request.size(), 0);
+    if (ret < 0)
+    {
+        LOG(INFO, "send向套接字%d发送数据失败, %s", sockfd_v[0], strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    std::string buf;
+    std::string each_recv(40960, 0);
+
+    ret = recv(sockfd_v[0], &each_recv[0], 40960, 0);
+    if (ret < 0)
+    {
+        LOG(INFO, "recv失败, %s, 套接字%d", strerror(errno), sockfd_v[0]);
+        exit(EXIT_FAILURE);
+    }
+    else
+        buf.insert(buf.begin(), each_recv.begin(), each_recv.begin() + ret);
+    std::cout << "当前的文件有:" << std::endl;
+    std::cout << buf;
 }
 
 int main()
@@ -413,6 +435,14 @@ int main()
             // 打印现有文件
             std::cout << "请输入你要下载文件的名称:";
             std::cin >> filename;
+        }
+        case 3:
+        {
+        }
+        case 4:
+        {
+            ShowFilesFunc();
+            break;
         }
         }
     }

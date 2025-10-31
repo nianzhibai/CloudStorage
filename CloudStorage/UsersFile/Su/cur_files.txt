@@ -1,0 +1,3 @@
+cur_files.txt
+makefile
+output.mp4

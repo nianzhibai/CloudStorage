@@ -6,7 +6,9 @@
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <sys/socket.h>
+#include <sys/wait.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <cstdint>
 #include <thread>
 #include <mutex>
@@ -58,6 +60,54 @@ private:
         }
         else if (method == "ShowFiles")
         {
+            if (chdir(filename.c_str()) == -1)
+            {
+                LOG(FATAL, "改变目录到%s失败, %s", filename.c_str(), strerror(errno));
+                exit(EXIT_FAILURE);
+            }
+            system("ls > cur_files.txt"); // 看下接口
+            if (chdir("../../CloudStorageServer/") == -1)
+            {
+                LOG(FATAL, "改变目录到%s失败, %s", "../../CloudStorageServer/", strerror(errno));
+                exit(EXIT_FAILURE);
+            }
+
+            std::string tmp = filename + "cur_files.txt";
+            std::ifstream ifs(tmp, std::ios_base::binary);
+            if (ifs.is_open() == false)
+            {
+                LOG(FATAL, "打开文件%s失败", tmp.c_str());
+                exit(EXIT_FAILURE);
+            }
+
+            std::string file_name_tmp(50, 0);
+            std::string send_msg;
+            int i = 0, count = 1;
+            while (count != 0)
+            {
+                i = (i + 1) % 4;
+                ifs.getline(&file_name_tmp[0], 50);
+                if (ifs.rdstate() == ifs.badbit || ifs.rdstate() == ifs.failbit)
+                {
+                    LOG(FATAL, "从文件%s获取一行数据失败", tmp.c_str());
+                    exit(EXIT_FAILURE);
+                }
+                count = ifs.gcount();
+                send_msg.insert(send_msg.end(), file_name_tmp.begin(), file_name_tmp.begin() + count);
+                if (i == 0)
+                    send_msg += '\n';
+                else
+                    send_msg += "   ";
+            }
+            if (i != 0)
+                send_msg += '\n';
+
+            int ret = send(buffer->_sockfd, send_msg.c_str(), send_msg.size(), 0);
+            if (ret < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
+            {
+                LOG(INFO, "send失败, %s", strerror(errno));
+                exit(EXIT_FAILURE);
+            }
         }
         else
         {

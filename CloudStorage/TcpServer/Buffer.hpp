@@ -97,7 +97,7 @@ public:
             {
                 request += "*.*";
                 _read_idx += (i - _read_idx + 3);
-                LOG(INFO, "从套接字%d缓冲区解析出一个请求:%s", _sockfd, request.c_str());
+                // LOG(INFO, "从套接字%d缓冲区解析出一个请求:%s", _sockfd, request.c_str());
                 // std::cout << "请求字符串大小:" << request.size() << std::endl;
                 return true;
             }
