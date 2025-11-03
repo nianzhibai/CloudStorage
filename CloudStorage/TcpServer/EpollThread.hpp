@@ -65,7 +65,7 @@ private:
                 LOG(FATAL, "改变目录到%s失败, %s", filename.c_str(), strerror(errno));
                 exit(EXIT_FAILURE);
             }
-            system("ls > cur_files.txt"); // 看下接口
+            system("ls > cur_files.txt");
             if (chdir("../../CloudStorageServer/") == -1)
             {
                 LOG(FATAL, "改变目录到%s失败, %s", "../../CloudStorageServer/", strerror(errno));
@@ -108,6 +108,7 @@ private:
                 LOG(INFO, "send失败, %s", strerror(errno));
                 exit(EXIT_FAILURE);
             }
+            buffer->_has_a_request = false;
         }
         else
         {
@@ -123,6 +124,7 @@ private:
             std::lock_guard<std::mutex> guard(buffer->_mtx);
             buffer->RecvInBuffer();
         }
+        // LOG(INFO, "套接字%d上本次的数据读取完了", buffer->_sockfd);
         if (buffer->_has_a_request == false)
             Dispatcher(buffer);
         if (buffer->_has_a_request == true && buffer->_req_method == "Upload")

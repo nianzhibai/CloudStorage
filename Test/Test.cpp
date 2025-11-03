@@ -1,42 +1,19 @@
 #include <iostream>
-#include <fstream>
+#include <cstring>
 #include <string>
 
 int main()
 {
-    std::ofstream ofs("test.txt", std::ios_base::binary | std::ios_base::out | std::ios_base::in);
-    ofs.seekp(100);
-    if (ofs.rdstate() != ofs.goodbit)
-    {
-        std::cout << "移动文件指针失败" << std::endl;
-        exit(EXIT_FAILURE);
-    }
+    int num;
+    std::string tmp(10, 0);
+    std::cout << "请选择数字:";
+    std::cin.getline(&tmp[0], 10);
+    num = std::stoi(tmp);
 
-    std::string str = "hello world!";
-    ofs.write(str.c_str(), str.size());
-    if (ofs.rdstate() != ofs.goodbit)
-    {
-        std::cout << "写入文件有问题" << std::endl;
-        exit(EXIT_FAILURE);
-    }
-    ofs.close();
-
-    str = "you are";
-    ofs.open("test.txt", std::ios_base::binary | std::ios_base::out | std::ios_base::in);
-    ofs.seekp(0);
-    if (ofs.rdstate() != ofs.goodbit)
-    {
-        std::cout << "移动文件指针失败" << std::endl;
-        exit(EXIT_FAILURE);
-    }
-    std::cout << ofs.tellp() << std::endl;
-    ofs.write(str.c_str(), str.size());
-    if (ofs.rdstate() != ofs.goodbit)
-    {
-        std::cout << "写入文件有问题" << std::endl;
-        exit(EXIT_FAILURE);
-    }
-    ofs.close();
-
+    std::cout << "请输入文件名:";
+    std::string filename;
+    getline(std::cin, filename);
+    std::cout << num << std::endl;
+    std::cout << filename << std::endl;
     return 0;
 }

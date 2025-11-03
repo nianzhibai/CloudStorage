@@ -10,6 +10,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <fstream>
+#include <cstring>
 
 std::string user_base_dir = "Su/";
 std::vector<int> sockfd_v;
@@ -25,7 +26,7 @@ bool exit_sign = false;
 int task_finish = 3;
 int task_opt = -1;
 int file_mid1 = 0, file_mid2 = 0, file_end = 0;
-std::string filename;
+std::string filename(100, 0);
 
 void ThreadFunc1()
 {
@@ -397,11 +398,14 @@ int main()
     {
         int input = 0;
         Menu();
-        std::cin >> input;
+        std::string tmp;
+        getline(std::cin, tmp);
+        input = std::stoi(tmp);
         while (!(input >= 0 && input <= 4))
         {
             std::cout << "请从新输入正确的数字:";
-            std::cin >> input;
+            getline(std::cin, tmp);
+            input = std::stoi(tmp);
         }
 
         switch (input)
@@ -414,11 +418,11 @@ int main()
         case 1:
         {
             std::cout << "请输入你要上传文件的文件名:";
-            std::cin >> filename;
+            getline(std::cin, filename);
             while (HasFile(filename) == false)
             {
                 std::cout << "请重新输入文件名:";
-                std::cin >> filename;
+                getline(std::cin, filename);
             }
             task_finish = 3;
             UploadFunc(filename);

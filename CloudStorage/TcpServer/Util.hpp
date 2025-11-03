@@ -26,17 +26,16 @@ public:
     static std::string ParseForFilename(std::string &request)
     {
         std::string filename = "../UsersFile/";
-        for (int i = 0; i < request.size(); i++)
+        int pos = request.find_last_of(' ');
+        if (pos == request.npos)
         {
-            if (request[i] == ' ')
-            {
-                request.erase(0, i + 1);
-                return filename;
-            }
-            filename += request[i];
+            LOG(FATAL, "解析请求路径出错, 客户端构建的请求有问题:%s", request);
+            exit(EXIT_FAILURE);
         }
-        LOG(FATAL, "解析请求路径出错, 客户端构建的请求有问题:%s", request);
-        exit(EXIT_FAILURE);
+        for (int i = 0; i < pos; i++)
+            filename += request[i];
+        request.erase(0, pos + 1);
+        return filename;
     }
     static std::pair<int, int> ParseForFileRange(std::string &request)
     {
