@@ -355,10 +355,7 @@ void ShowFilesFunc()
     std::string buf;
     std::string each_recv(40960, 0);
 
-    std::cout << "你好" << std::endl;
     ret = recv(sockfd_v[0], &each_recv[0], 40960, 0);
-    std::cout << "你好" << std::endl;
-
     if (ret < 0)
     {
         LOG(INFO, "recv失败, %s, 套接字%d", strerror(errno), sockfd_v[0]);
@@ -439,9 +436,39 @@ int main()
         }
         case 2:
         {
-            // 打印现有文件
+            ShowFilesFunc();
             std::cout << "请输入你要下载文件的名称:";
-            std::cin >> filename;
+            getline(std::cin, filename);
+            while (true)
+            {
+                std::string request = std::string("Check") + " " + user_base_dir + filename + " " + "0-0" + "*.*";
+                int ret = send(sockfd_v[0], request.c_str(), request.size(), 0);
+                if (ret < 0)
+                {
+                    LOG(INFO, "send失败, 套接字%d, %s", sockfd_v[0], strerror(errno));
+                    exit(EXIT_FAILURE);
+                }
+                int file_exist = 0;
+                ret = recv(sockfd_v[0], &file_exist, 4, 0);
+                if (ret < 0)
+                {
+                    LOG(INFO, "recv失败, 套接字%d, %s", sockfd_v[0], strerror(errno));
+                    exit(EXIT_FAILURE);
+                }
+                if (file_exist == 0)
+                {
+                    std::cout << "云盘中没有这个文件, 请重新输入文件名:";
+                    getline(std::cin, filename);
+                    continue;
+                }
+                else
+                {
+                    std::cout << "正在下载文件请稍等, 这个过程请不要退出客户端" << std::endl;
+                    break;
+                }
+            }
+            // 三个线程发送获取文件请求，服务器响应
+            break;
         }
         case 3:
         {

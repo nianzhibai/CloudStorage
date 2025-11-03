@@ -110,6 +110,47 @@ private:
             }
             buffer->_has_a_request = false;
         }
+        else if (method == "Check")
+        {
+            int file_exit = 0;
+            int fd = open(filename.c_str(), O_RDONLY);
+            if (fd == -1)
+            {
+                LOG(INFO, "打开文件失败, 文件名:%s", filename.c_str());
+                if (errno == ENOENT)
+                {
+                    int ret = send(buffer->_sockfd, &file_exit, 4, 0);
+                    if (ret < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
+                    {
+                        LOG(FATAL, "send失败, %s", strerror(errno));
+                        exit(EXIT_FAILURE);
+                    }
+                    buffer->_has_a_request = false;
+                }
+                else
+                {
+                    LOG(FATAL, "open fail, filename:%s, %s", filename.c_str(), strerror(errno));
+                    exit(EXIT_FAILURE);
+                }
+            }
+            else
+            {
+                std::cout << "打开文件成功" << std::endl;
+                file_exit = 1;
+                int ret = send(buffer->_sockfd, &file_exit, 4, 0);
+                if (ret < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
+                {
+                    LOG(INFO, "send失败, %s", strerror(errno));
+                    exit(EXIT_FAILURE);
+                }
+                buffer->_has_a_request = false;
+                if (close(fd) == -1)
+                {
+                    LOG(FATAL, "关闭文件描述符失败, filename:%s, %s", filename.c_str(), strerror(errno));
+                    exit(EXIT_FAILURE);
+                }
+            }
+        }
         else
         {
             LOG(INFO, "未知请求方法, method:%s", method.c_str());
