@@ -355,7 +355,10 @@ void ShowFilesFunc()
     std::string buf;
     std::string each_recv(40960, 0);
 
+    std::cout << "你好" << std::endl;
     ret = recv(sockfd_v[0], &each_recv[0], 40960, 0);
+    std::cout << "你好" << std::endl;
+
     if (ret < 0)
     {
         LOG(INFO, "recv失败, %s, 套接字%d", strerror(errno), sockfd_v[0]);

@@ -80,13 +80,13 @@ private:
                 exit(EXIT_FAILURE);
             }
 
-            std::string file_name_tmp(50, 0);
+            std::string file_name_tmp(100, 0);
             std::string send_msg;
             int i = 0, count = 1;
             while (count != 0)
             {
                 i = (i + 1) % 4;
-                ifs.getline(&file_name_tmp[0], 50);
+                ifs.getline(&file_name_tmp[0], 100);
                 if (ifs.rdstate() == ifs.badbit || ifs.rdstate() == ifs.failbit)
                 {
                     LOG(FATAL, "从文件%s获取一行数据失败", tmp.c_str());
