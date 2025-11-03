@@ -26,7 +26,7 @@ bool exit_sign = false;
 int task_finish = 3;
 int task_opt = -1;
 int file_mid1 = 0, file_mid2 = 0, file_end = 0;
-std::string filename(100, 0);
+std::string filename;
 
 void ThreadFunc1()
 {
