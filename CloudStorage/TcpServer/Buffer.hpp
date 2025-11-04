@@ -114,28 +114,4 @@ public:
         _read_idx = _write_idx = 0;
     }
     void Clear() { _read_idx = _write_idx = 0; }
-
-    // void WriteInBuffer(uint size, const void *data)
-    // {
-    //     ExpandCapacity(size);
-    //     std::copy((const char *)data, (const char *)data + size, WritePos());
-    //     _write_idx += size;
-    // }
-    // const std::string ReadAllFromBuffer()
-    // {
-    //     std::string str(ReadAbleSize(), 0);
-    //     std::copy(ReadPos(), WritePos(), &str[0]);
-    //     _read_idx = _write_idx = 0;
-    //     return str;
-    // }
-    // void MoveReadIdx(int size)
-    // {
-    //     if (size > ReadAbleSize())
-    //     {
-    //         LOG(INFO, "不能移动ReadIdx Size大小, 因为可读数据没有那么多");
-    //         return;
-    //     }
-    //     _read_idx += size;
-    // }
-    // int Capacity() { return _buffer.capacity(); }
 };

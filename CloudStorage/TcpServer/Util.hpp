@@ -64,6 +64,35 @@ public:
     }
 };
 
+class ResponseUtil
+{
+public:
+    static int ParseForFileExist(std::string &response)
+    {
+        int pos = response.find(' ');
+        if (pos == response.npos)
+        {
+            LOG(FATAL, "从服务器响应中解析不出来空格, 服务器构建的响应有问题, response:%s", response.c_str());
+            exit(EXIT_FAILURE);
+        }
+        std::string tmp = response.substr(0, pos);
+        response.erase(0, pos + 1);
+        return std::stoi(tmp);
+    }
+    static int ParseForFileSize(std::string &response)
+    {
+        int pos = response.find("*.*");
+        if (pos == response.npos)
+        {
+            LOG(FATAL, "从服务器响应中解析不出来*.*, 服务器构建的响应有问题, response:%s", response.c_str());
+            exit(EXIT_FAILURE);
+        }
+        std::string tmp = response.substr(0, pos);
+        response.clear();
+        return std::stoi(tmp);
+    }
+};
+
 class FileUtil
 {
 public:

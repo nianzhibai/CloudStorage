@@ -7,6 +7,7 @@
 #include <sys/eventfd.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <cstdint>
@@ -50,10 +51,11 @@ private:
         if (method == "Upload")
         {
             FileUtil::FileNameOk(filename);
-            threadpool.AddTask(filename, file_range.first, file_range.second, buffer);
+            threadpool.AddTask(filename, method, file_range.first, file_range.second, buffer);
         }
         else if (method == "Download")
         {
+            threadpool.AddTask(filename, method, file_range.first, file_range.second, buffer);
         }
         else if (method == "Delete")
         {
@@ -112,14 +114,18 @@ private:
         }
         else if (method == "Check")
         {
-            int file_exit = 0;
-            int fd = open(filename.c_str(), O_RDONLY);
-            if (fd == -1)
+            int file_exist = 0;
+            int file_size = 0;
+            std::string response;
+            struct stat statbuf;
+            int ret = stat(filename.c_str(), &statbuf);
+            if (ret == -1)
             {
-                LOG(INFO, "打开文件失败, 文件名:%s", filename.c_str());
                 if (errno == ENOENT)
                 {
-                    int ret = send(buffer->_sockfd, &file_exit, 4, 0);
+                    LOG(INFO, "打开文件:%s失败, %s", filename.c_str(), strerror(errno));
+                    response = std::to_string(file_exist) + " " + "0" + "*.*";
+                    ret = send(buffer->_sockfd, response.c_str(), response.size(), 0);
                     if (ret < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
                     {
                         LOG(FATAL, "send失败, %s", strerror(errno));
@@ -129,26 +135,23 @@ private:
                 }
                 else
                 {
-                    LOG(FATAL, "open fail, filename:%s, %s", filename.c_str(), strerror(errno));
+                    LOG(FATAL, "stat出错, 文件名:%s, %s", filename.c_str(), strerror(errno));
                     exit(EXIT_FAILURE);
                 }
             }
             else
             {
-                std::cout << "打开文件成功" << std::endl;
-                file_exit = 1;
-                int ret = send(buffer->_sockfd, &file_exit, 4, 0);
+                // LOG(INFO, "打开文件:%s成功", filename.c_str());
+                file_exist = 1;
+                file_size = statbuf.st_size;
+                response = std::to_string(file_exist) + " " + std::to_string(file_size) + "*.*";
+                ret = send(buffer->_sockfd, response.c_str(), response.size(), 0);
                 if (ret < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
                 {
-                    LOG(INFO, "send失败, %s", strerror(errno));
+                    LOG(FATAL, "send失败, %s", strerror(errno));
                     exit(EXIT_FAILURE);
                 }
                 buffer->_has_a_request = false;
-                if (close(fd) == -1)
-                {
-                    LOG(FATAL, "关闭文件描述符失败, filename:%s, %s", filename.c_str(), strerror(errno));
-                    exit(EXIT_FAILURE);
-                }
             }
         }
         else
@@ -160,7 +163,7 @@ private:
 
     void ReadEventFunc(const BufferPtr &buffer)
     {
-        // LOG(INFO, "套接字:%d上有读事件就绪了", buffer->_sockfd);
+        LOG(INFO, "套接字:%d上有读事件就绪了", buffer->_sockfd);
         {
             std::lock_guard<std::mutex> guard(buffer->_mtx);
             buffer->RecvInBuffer();
