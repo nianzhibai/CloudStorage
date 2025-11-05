@@ -9,7 +9,8 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 #include <cstdint>
 #include <thread>
 #include <mutex>
@@ -59,8 +60,11 @@ private:
         }
         else if (method == "Delete")
         {
-            std::string tmp = "rm -f " + filename;
-            system(tmp.c_str());
+            if (remove(filename.c_str()) == -1)
+            {
+                LOG(FATAL, "删除文件:%s失败, %s", filename.c_str(), strerror(errno));
+                exit(EXIT_FAILURE);
+            }
             LOG(INFO, "删除文件:%s成功", filename.c_str());
             buffer->_has_a_request = false;
         }
@@ -167,7 +171,7 @@ private:
 
     void ReadEventFunc(const BufferPtr &buffer)
     {
-        LOG(INFO, "套接字:%d上有读事件就绪了", buffer->_sockfd);
+        // LOG(INFO, "套接字:%d上有读事件就绪了", buffer->_sockfd);
         {
             std::lock_guard<std::mutex> guard(buffer->_mtx);
             buffer->RecvInBuffer();

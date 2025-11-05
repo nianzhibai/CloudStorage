@@ -616,6 +616,8 @@ int main()
         server_addr.sin_family = AF_INET;
         inet_aton("127.0.0.1", &(server_addr.sin_addr));
         server_addr.sin_port = htons(1025);
+        // inet_aton("212.134.175.128", &(server_addr.sin_addr));
+        // server_addr.sin_port = htons(10250);
         if (connect(sockfd, (sockaddr *)&server_addr, sizeof(server_addr)) == -1)
         {
             LOG(FATAL, "套接字:%d连接服务器失败, %s", sockfd, strerror(errno));
