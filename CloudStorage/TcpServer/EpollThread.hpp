@@ -59,6 +59,10 @@ private:
         }
         else if (method == "Delete")
         {
+            std::string tmp = "rm -f " + filename;
+            system(tmp.c_str());
+            LOG(INFO, "删除文件:%s成功", filename.c_str());
+            buffer->_has_a_request = false;
         }
         else if (method == "ShowFiles")
         {

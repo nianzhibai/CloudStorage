@@ -635,12 +635,27 @@ int main()
         Menu();
         std::string tmp;
         getline(std::cin, tmp);
-        input = std::stoi(tmp);
+        try
+        {
+            input = std::stoi(tmp);
+        }
+        catch (std::invalid_argument const &ex)
+        {
+            std::cout << "输入不正确, 请重新输入!" << std::endl;
+            continue;
+        }
         while (!(input >= 0 && input <= 4))
         {
-            std::cout << "请从新输入正确的数字:";
+            std::cout << "输入不正确, 请重新输入正确的数字:";
             getline(std::cin, tmp);
-            input = std::stoi(tmp);
+            try
+            {
+                input = std::stoi(tmp);
+            }
+            catch (std::invalid_argument const &ex)
+            {
+                continue;
+            }
         }
 
         switch (input)
@@ -720,6 +735,49 @@ int main()
         }
         case 3:
         {
+            ShowFilesFunc();
+            std::cout << "请输入你要删除的文件名:";
+            getline(std::cin, filename);
+            int file_exist = 0;
+            while (true)
+            {
+                std::string request = std::string("Check") + " " + user_base_dir + filename + " " + "0-0" + "*.*";
+                int ret = send(sockfd_v[0], request.c_str(), request.size(), 0);
+                if (ret < 0)
+                {
+                    LOG(INFO, "send失败, 套接字%d, %s", sockfd_v[0], strerror(errno));
+                    exit(EXIT_FAILURE);
+                }
+                std::string recv_buf(100, 0);
+                ret = recv(sockfd_v[0], &recv_buf[0], recv_buf.size(), 0);
+                if (ret < 0)
+                {
+                    LOG(INFO, "recv失败, 套接字%d, %s", sockfd_v[0], strerror(errno));
+                    exit(EXIT_FAILURE);
+                }
+                file_exist = ResponseUtil::ParseForFileExist(recv_buf);
+                if (file_exist == 0)
+                {
+                    std::cout << "云盘中没有这个文件" << std::endl;
+                    break;
+                }
+                else
+                {
+                    request = std::string("Delete") + " " + user_base_dir + filename + " " + "0-0" + "*.*";
+                    ret = send(sockfd_v[0], request.c_str(), request.size(), 0);
+                    if (ret < 0)
+                    {
+                        LOG(INFO, "send失败, 套接字%d, %s", sockfd_v[0], strerror(errno));
+                        exit(EXIT_FAILURE);
+                    }
+                    else
+                    {
+                        std::cout << "已提交删除任务" << std::endl;
+                        break;
+                    }
+                }
+            }
+            break;
         }
         case 4:
         {
