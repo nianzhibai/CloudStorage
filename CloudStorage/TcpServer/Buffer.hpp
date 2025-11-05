@@ -55,11 +55,11 @@ public:
         // LOG(INFO, "开始读取套接字:%d上的数据", _sockfd);
         while (true)
         {
-            if (ReadAbleSize() < 10240)
+            if (ReadAbleSize() < 2048)
             {
-                ExpandCapacity(10240);
+                ExpandCapacity(2048);
             }
-            int ret = recv(_sockfd, &_buffer[_write_idx], 10240, 0);
+            int ret = recv(_sockfd, &_buffer[_write_idx], 2048, 0);
             if (ret < 0)
             {
                 if (errno == EWOULDBLOCK || errno == EAGAIN)
